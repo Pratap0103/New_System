@@ -2,7 +2,6 @@ import React, { useState, useEffect } from 'react';
 import { get, save } from '../utils/storage';
 import { generateId } from '../utils/helpers';
 import { generateInvoicePDF } from '../utils/InvoicePDF';
-import { calcInvoice } from '../utils/helpers';
 import DataTable from '../components/DataTable';
 import StatusBadge from '../components/StatusBadge';
 import PopupModal from '../components/PopupModal';
@@ -24,20 +23,20 @@ const Invoices = () => {
   const [filterItem, setFilterItem] = useState('');
 
   useEffect(() => {
-    setData(get('jp_invoices'));
+    setData(get('jp_invoices') || []);
   }, []);
 
   const pendingData = data.filter(d => !d.status || d.status === 'Pending');
   const historyData = data.filter(d => d.status === 'Invoiced');
 
-  const itemNames = [...new Set(data.map(item => item.item || item.itemName))].filter(Boolean).map(i => ({ label: i, value: i }));
+  const itemNames = [...new Set(data.flatMap(item => item.items?.map(i => i.name) || []))].filter(Boolean).map(i => ({ label: i, value: i }));
 
   const applyFilters = (list) => {
     const q = search.toLowerCase();
     return list.filter(d => {
-      const matchSearch = !q || match(d.orderId, q) || match(d.invoiceId, q) || match(d.customerName || d.personName, q) || match(d.item || d.itemName, q);
+      const matchSearch = !q || match(d.orderId, q) || match(d.invoiceId, q) || match(d.customerName || d.personName, q) || (d.items && d.items.some(i => match(i.name, q)));
       const matchStatus = !filterStatus || d.status === filterStatus;
-      const matchItem = !filterItem || (d.item || d.itemName) === filterItem;
+      const matchItem = !filterItem || (d.items && d.items.some(i => i.name === filterItem));
       return matchSearch && matchStatus && matchItem;
     });
   };
@@ -45,28 +44,14 @@ const Invoices = () => {
   const baseData = activeTab === 'pending' ? pendingData : historyData;
   const filteredData = applyFilters(baseData);
 
-  const getInventoryPriceData = (itemName) => {
-    const invData = get('jp_inventory');
-    const matched = invData.find(i => itemName.includes(i.productName) || i.productName.includes(itemName));
-    if (matched) return { price: matched.unitPrice, gst: matched.gstRate };
-    return { price: 2000, gst: 18 };
-  };
-
   const openInvoice = (item) => {
     setSelectedItem(item);
-    const { price, gst } = getInventoryPriceData(item.item || item.itemName);
-    const calcs = calcInvoice(item.quantity, price, gst);
     setInvoiceConfig({
       invoiceId: generateId('INV'),
       customerName: item.personName || item.customerName || 'Walk-in Customer',
       personNumber: item.personNumber || '',
-      item: item.item || item.itemName,
-      quantity: Number(item.quantity),
-      unitPrice: price,
-      subTotal: calcs.sub,
-      gst: calcs.gst,
-      gstRate: gst,
-      totalAmount: calcs.total,
+      items: item.items || [],
+      totalAmount: item.totalAmount || 0,
       invoiceDate: new Date().toISOString(),
       paymentTerms: 'Payment due within 15 days.',
       orderId: item.orderId
@@ -81,19 +66,17 @@ const Invoices = () => {
       status: 'Invoiced',
       invoiceId: invoiceConfig.invoiceId,
       customerName: invoiceConfig.customerName,
-      subTotal: invoiceConfig.subTotal,
-      gst: invoiceConfig.gst,
+      items: invoiceConfig.items,
       totalAmount: invoiceConfig.totalAmount,
       invoiceDate: invoiceConfig.invoiceDate
     } : d);
 
-    const dispatches = get('jp_dispatches');
+    const dispatches = get('jp_dispatches') || [];
     save('jp_dispatches', [...dispatches, {
       invoiceId: invoiceConfig.invoiceId,
       orderId: invoiceConfig.orderId,
       personName: invoiceConfig.customerName,
-      itemName: invoiceConfig.item,
-      quantity: invoiceConfig.quantity,
+      items: invoiceConfig.items,
       totalAmount: invoiceConfig.totalAmount,
       status: 'Pending'
     }]);
@@ -105,34 +88,27 @@ const Invoices = () => {
   };
 
   const downloadPDFManual = (item) => {
-    const { price, gst } = getInventoryPriceData(item.item);
-    generateInvoicePDF({ ...item, invoiceId: item.invoiceId || 'N/A', quantity: item.quantity, unitPrice: price, subTotal: item.subTotal, gst: item.gst, totalAmount: item.totalAmount });
+    generateInvoicePDF({ ...item, invoiceId: item.invoiceId || 'N/A' });
   };
 
-  const columnsPending = ['Order ID', 'Person Name', 'Item Name', 'Qty', 'Unit Price', 'Sub Total', 'GST', 'Total', 'Action'];
-  const columnsHistory = ['Invoice ID', 'Order ID', 'Customer', 'Item', 'Sub Total', 'GST', 'Total', 'Date', 'PDF', 'Status'];
+  const columnsPending = ['Action', 'Order ID', 'Enquiry ID', 'Person Name', 'Items', 'Qty', 'Total'];
+  const columnsHistory = ['Invoice ID', 'Order ID', 'Enquiry ID', 'Customer', 'Items', 'Qty', 'Total', 'Date', 'PDF', 'Status'];
 
-  const renderPendingCard = (item, idx) => {
-    const { price, gst } = getInventoryPriceData(item.item || item.itemName);
-    const calcs = calcInvoice(item.quantity, price, gst);
-    return (
-      <div key={idx} className="bg-white rounded-xl border border-gray-200 p-4 shadow-sm space-y-3">
-        <div className="flex justify-between items-start">
-          <div>
-            <p className="font-bold text-sm text-gray-900">{item.orderId}</p>
-            <p className="text-sm font-medium text-gray-700">{item.personName || item.customerName}</p>
-            <p className="text-sm text-gray-600 mt-0.5">{item.item || item.itemName} × {item.quantity}</p>
-          </div>
-          <div className="text-right">
-            <p className="text-xs text-gray-500">Unit: ₹{price}</p>
-            <p className="text-xs text-gray-500">GST: ₹{calcs.gst}</p>
-            <p className="font-bold text-sky-600 text-base mt-0.5">₹{calcs.total}</p>
-          </div>
+  const renderPendingCard = (item, idx) => (
+    <div key={idx} className="bg-white rounded-xl border border-gray-200 p-4 shadow-sm space-y-3">
+      <div className="flex justify-between items-start">
+        <div>
+          <p className="font-bold text-sm text-gray-900">{item.orderId}</p>
+          <p className="text-sm font-medium text-gray-700">{item.personName || item.customerName}</p>
+          <p className="text-xs text-gray-500 mt-1">{item.items?.map(i => `${i.name} (x${i.qty})`).join(', ') || 'No Items'}</p>
         </div>
-        <button onClick={() => openInvoice(item)} className="btn btn-primary w-full py-2 text-xs">Create Invoice</button>
+        <div className="text-right">
+          <p className="font-bold text-sky-600 text-base">₹{item.totalAmount || 0}</p>
+        </div>
       </div>
-    );
-  };
+      <button onClick={() => openInvoice(item)} className="btn btn-primary w-full py-2 text-xs">Create Invoice</button>
+    </div>
+  );
 
   const renderHistoryCard = (item, idx) => (
     <div key={idx} className="bg-white rounded-xl border border-gray-200 p-4 shadow-sm space-y-2">
@@ -141,7 +117,7 @@ const Invoices = () => {
           <p className="font-bold text-sm text-sky-700">{item.invoiceId}</p>
           <p className="text-xs text-gray-500">{item.orderId}</p>
           <p className="text-sm font-medium text-gray-700 mt-1">{item.customerName}</p>
-          <p className="text-sm text-gray-600">{item.item}</p>
+          <p className="text-xs text-gray-600 mt-1">{item.items?.map(i => `${i.name} (x${i.qty})`).join(', ')}</p>
         </div>
         <div className="flex flex-col items-end gap-2">
           <StatusBadge status={item.status} />
@@ -150,10 +126,9 @@ const Invoices = () => {
           </button>
         </div>
       </div>
-      <div className="grid grid-cols-3 gap-2 text-xs text-gray-500 border-t border-gray-100 pt-2">
-        <div><span className="font-medium text-gray-700">Sub:</span> ₹{item.subTotal}</div>
-        <div><span className="font-medium text-gray-700">GST:</span> ₹{item.gst}</div>
-        <div><span className="font-bold text-gray-900">₹{item.totalAmount}</span></div>
+      <div className="flex justify-between items-center text-xs border-t border-gray-100 pt-2">
+        <span className="font-bold text-gray-900">Total Amount: ₹{item.totalAmount}</span>
+        <span className="text-gray-400">{new Date(item.invoiceDate).toLocaleDateString()}</span>
       </div>
     </div>
   );
@@ -164,9 +139,8 @@ const Invoices = () => {
 
   return (
     <div className="animate-fade-in space-y-4">
-      <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-3 bg-white p-2.5 sm:p-3 border border-gray-200 rounded-xl shadow-sm">
+      <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-3 p-1 sm:p-2 mb-2">
         <h2 className="text-lg font-bold text-gray-900 shrink-0 hidden sm:block">Invoices</h2>
-
         <SearchBar
           search={search}
           onSearch={setSearch}
@@ -177,7 +151,6 @@ const Invoices = () => {
           ]}
           count={{ filtered: filteredData.length, total: baseData.length }}
         />
-
         <div className="flex gap-1 bg-gray-100 p-1 rounded-lg shrink-0 overflow-x-auto w-full xl:w-auto">
           <button className={`flex-1 xl:flex-none px-3 py-1.5 rounded-md text-xs font-medium transition-colors whitespace-nowrap ${activeTab === 'pending' ? 'bg-white shadow text-sky-600' : 'text-gray-600'}`} onClick={() => { setActiveTab('pending'); setSearch(''); setFilterStatus(''); setFilterItem(''); }}>
             Ready ({pendingData.length})
@@ -191,32 +164,26 @@ const Invoices = () => {
       <DataTable
         columns={activeTab === 'pending' ? columnsPending : columnsHistory}
         data={filteredData}
-        renderRow={(item, idx) => {
-          if (activeTab === 'pending') {
-            const { price, gst } = getInventoryPriceData(item.item || item.itemName);
-            const calcs = calcInvoice(item.quantity, price, gst);
-            return (
-              <tr key={idx} className="hover:bg-gray-50 transition-colors">
-                <td className="font-medium text-gray-900">{item.orderId}</td>
-                <td>{item.personName || item.customerName}</td>
-                <td>{item.item || item.itemName}</td>
-                <td className="font-bold">{item.quantity}</td>
-                <td>₹{price}</td>
-                <td>₹{calcs.sub}</td>
-                <td className="text-gray-500">₹{calcs.gst} ({gst}%)</td>
-                <td className="font-bold text-sky-600">₹{calcs.total}</td>
+        renderRow={(item, idx) => (
+          <tr key={idx} className="hover:bg-gray-50 transition-colors">
+            {activeTab === 'pending' ? (
+              <>
                 <td><button onClick={() => openInvoice(item)} className="btn btn-primary px-3 py-1 text-xs">Create Invoice</button></td>
-              </tr>
-            );
-          } else {
-            return (
-              <tr key={idx} className="hover:bg-gray-50 transition-colors">
+                <td className="font-medium text-gray-900">{item.orderId}</td>
+                <td className="text-xs text-gray-500">{item.enquiryId || '-'}</td>
+                <td>{item.personName || item.customerName}</td>
+                <td className="max-w-[200px] truncate">{item.items?.map(i => `${i.name} (x${i.qty})`).join(', ')}</td>
+                <td className="font-bold text-sky-600">{item.items?.reduce((sum, i) => sum + Number(i.qty), 0) || 0}</td>
+                <td className="font-bold text-sky-600">₹{item.totalAmount || 0}</td>
+              </>
+            ) : (
+              <>
                 <td className="font-medium text-gray-900">{item.invoiceId}</td>
                 <td className="text-gray-500 text-xs">{item.orderId}</td>
+                <td className="text-gray-500 text-xs">{item.enquiryId || '-'}</td>
                 <td>{item.customerName}</td>
-                <td>{item.item}</td>
-                <td>₹{item.subTotal}</td>
-                <td>₹{item.gst}</td>
+                <td className="max-w-[200px] truncate">{item.items?.map(i => `${i.name} (x${i.qty})`).join(', ')}</td>
+                <td className="font-bold text-sky-600">{item.items?.reduce((sum, i) => sum + Number(i.qty), 0) || 0}</td>
                 <td className="font-bold">₹{item.totalAmount}</td>
                 <td className="text-xs">{new Date(item.invoiceDate).toLocaleDateString()}</td>
                 <td>
@@ -225,10 +192,10 @@ const Invoices = () => {
                   </button>
                 </td>
                 <td><StatusBadge status={item.status} /></td>
-              </tr>
-            );
-          }
-        }}
+              </>
+            )}
+          </tr>
+        )}
         renderCard={activeTab === 'pending' ? renderPendingCard : renderHistoryCard}
       />
 
@@ -238,14 +205,15 @@ const Invoices = () => {
             <div className="bg-gray-50 p-4 rounded-xl text-sm text-gray-700 divide-y divide-gray-200 border border-gray-200">
               <div className="pb-2 font-mono text-xs">{invoiceConfig.invoiceId}</div>
               <div className="py-2"><strong>Customer:</strong> {invoiceConfig.customerName}</div>
-              <div className="py-2 flex justify-between">
-                <span><strong>Item:</strong> {invoiceConfig.item}</span>
-                <span className="text-gray-500">{invoiceConfig.quantity}x @ ₹{invoiceConfig.unitPrice}</span>
+              <div className="py-2"><strong>Order ID:</strong> {invoiceConfig.orderId}</div>
+              <div className="py-3">
+                <p className="font-bold mb-1">Items:</p>
+                <ul className="list-disc pl-5 space-y-1">
+                  {invoiceConfig.items?.map((it, i) => <li key={i}>{it.name} x {it.qty}</li>)}
+                </ul>
               </div>
-              <div className="pt-2 text-right space-y-1">
-                <div>Sub Total: ₹{invoiceConfig.subTotal?.toFixed(2)}</div>
-                <div>GST ({invoiceConfig.gstRate}%): ₹{invoiceConfig.gst?.toFixed(2)}</div>
-                <div className="font-bold text-lg text-sky-700 mt-2">Grand Total: ₹{invoiceConfig.totalAmount?.toFixed(2)}</div>
+              <div className="pt-2 text-right">
+                <div className="font-bold text-lg text-sky-700 mt-2">Total Amount: ₹{invoiceConfig.totalAmount}</div>
               </div>
             </div>
             <div>

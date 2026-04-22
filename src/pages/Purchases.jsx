@@ -127,7 +127,7 @@ const Purchases = () => {
 
   return (
     <div className="animate-fade-in space-y-4">
-      <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-3 bg-white p-2.5 sm:p-3 border border-gray-200 rounded-xl shadow-sm">
+    <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-3 p-1 sm:p-2 mb-2">
         <h2 className="text-lg font-bold text-gray-900 shrink-0 hidden sm:block">Purchases</h2>
 
         <SearchBar
@@ -156,10 +156,10 @@ const Purchases = () => {
         data={filteredData}
         renderRow={(item, idx) => (
           <tr key={idx} className="hover:bg-gray-50 transition-colors">
-            <td className="font-medium text-gray-900">{item.orderId}</td>
-            {activeTab === 'pending' && <td>{item.personName}</td>}
-            <td>{item.itemName}</td>
-            <td>{item.quantity}</td>
+            <td className="font-medium text-gray-900">{item.orderId || '-'}</td>
+            {activeTab === 'pending' && <td>{item.personName || 'Unnamed'}</td>}
+            <td>{item.itemName || 'No Item'}</td>
+            <td>{item.quantity || 0}</td>
             {activeTab === 'pending' ? (
               <>
                 <td>
@@ -167,16 +167,16 @@ const Purchases = () => {
                     <ImageIcon size={16} />
                   </button>
                 </td>
-                <td>{new Date(item.orderDate).toLocaleDateString()}</td>
+                <td>{item.orderDate ? new Date(item.orderDate).toLocaleDateString() : '-'}</td>
                 <td><button onClick={() => openPurchase(item)} className="btn btn-primary px-3 py-1 text-xs">Purchase</button></td>
               </>
             ) : (
               <>
-                <td>{item.supplierName}</td>
-                <td>{item.supplierContact}</td>
-                <td>₹{item.purchasePrice}</td>
-                <td>{new Date(item.expectedDeliveryDate).toLocaleDateString()}</td>
-                <td><StatusBadge status={item.status} /></td>
+                <td>{item.supplierName || '-'}</td>
+                <td>{item.supplierContact || '-'}</td>
+                <td>₹{item.purchasePrice || 0}</td>
+                <td>{item.expectedDeliveryDate ? new Date(item.expectedDeliveryDate).toLocaleDateString() : '-'}</td>
+                <td><StatusBadge status={item.status || 'Pending'} /></td>
               </>
             )}
           </tr>

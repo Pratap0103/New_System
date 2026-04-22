@@ -108,6 +108,9 @@
     background-color: #f9fafb;
     border-bottom: 1px solid #e5e7eb;
     white-space: nowrap;
+    position: sticky;
+    top: 0;
+    z-index: 10;
   }
 
   .data-table td {
@@ -179,6 +182,11 @@ body {
   padding-left: 2.25rem !important;
 }
 
-.pr-10 {
-  padding-right: 2.5rem !important;
+/* Hide scrollbar but maintain functionality */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
 }

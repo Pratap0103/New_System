@@ -11,6 +11,7 @@ const computeCounts = () => ({
   ord: get('jp_orders').filter(o => o.status === 'Pending').length,
   pur: get('jp_purchases').filter(p => !p.status || p.status === 'Pending').length,
   rec: get('jp_receives').filter(r => !r.status || r.status === 'Pending').length,
+  asm: get('jp_assembles').filter(a => !a.status || a.status === 'Pending').length,
   inv: get('jp_invoices').filter(i => !i.status || i.status === 'Pending').length,
   dis: get('jp_dispatches').filter(d => !d.status || d.status === 'Pending').length,
 });
@@ -26,13 +27,14 @@ const Sidebar = ({ mobileOpen, onClose }) => {
 
   const navItems = [
     { name: 'Dashboard',  path: '/',           icon: LayoutDashboard },
+    { name: 'Inventory',  path: '/inventory',  icon: Package },
     { name: 'Enquiries',  path: '/enquiries',  icon: MessageSquare,  badge: counts.enq },
     { name: 'Orders',     path: '/orders',     icon: ShoppingCart,   badge: counts.ord },
-    { name: 'Inventory',  path: '/inventory',  icon: Package },
-    { name: 'Purchases',  path: '/purchases',  icon: ShoppingCart,   badge: counts.pur },
-    { name: 'Receives',   path: '/receives',   icon: ArchiveRestore, badge: counts.rec },
+    { name: 'Assemble',   path: '/assemble',   icon: Package,        badge: counts.asm },
     { name: 'Invoices',   path: '/invoices',   icon: FileText,       badge: counts.inv },
     { name: 'Dispatch',   path: '/dispatch',   icon: Truck,          badge: counts.dis },
+    { name: 'Purchases',  path: '/purchases',  icon: ShoppingCart,   badge: counts.pur },
+    { name: 'Receives',   path: '/receives',   icon: ArchiveRestore, badge: counts.rec },
     { name: 'Master',     path: '/master',     icon: Database },
     { name: 'Settings',   path: '/settings',   icon: Settings },
   ];

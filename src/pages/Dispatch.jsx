@@ -82,8 +82,8 @@ const Dispatch = () => {
     window.dispatchEvent(new Event("storage"));
   };
 
-  const columnsPending = ['Invoice ID', 'Order Ref', 'Customer', 'Item', 'Qty', 'Total Amount', 'Action'];
-  const columnsHistory = ['Dispatch ID', 'Invoice ID', 'Customer', 'Item', 'Transport', 'Vehicle No', 'Dispatch Date', 'Est Delivery', 'Status'];
+  const columnsPending = ['Action', 'Invoice ID', 'Order ID', 'Enquiry ID', 'Customer', 'Items', 'Qty', 'Total Amount'];
+  const columnsHistory = ['Dispatch ID', 'Invoice ID', 'Order ID', 'Enquiry ID', 'Customer', 'Items', 'Qty', 'Transport', 'Vehicle No', 'Dispatch Date', 'Est Delivery', 'Status'];
 
   const renderPendingCard = (item, idx) => (
     <div key={idx} className="bg-white rounded-xl border border-gray-200 p-4 shadow-sm space-y-2">
@@ -92,7 +92,7 @@ const Dispatch = () => {
           <p className="font-bold text-sm text-sky-700">{item.invoiceId}</p>
           <p className="text-xs text-gray-500">{item.orderId}</p>
           <p className="text-sm font-medium text-gray-800 mt-1">{item.personName}</p>
-          <p className="text-sm text-gray-600">{item.itemName} × {item.quantity}</p>
+          <p className="text-xs text-gray-600 mt-1">{item.items?.map(i => `${i.name} (x${i.qty})`).join(', ')}</p>
         </div>
         <div className="text-right">
           <p className="font-bold text-gray-900">₹{item.totalAmount}</p>
@@ -109,7 +109,7 @@ const Dispatch = () => {
           <p className="font-bold text-sm text-gray-900">{item.dispatchId}</p>
           <p className="text-xs text-gray-500">{item.invoiceId}</p>
           <p className="text-sm font-medium text-gray-700 mt-1">{item.personName}</p>
-          <p className="text-sm text-gray-600">{item.itemName}</p>
+          <p className="text-xs text-gray-600 mt-1">{item.items?.map(i => `${i.name} (x${i.qty})`).join(', ')}</p>
         </div>
         <StatusBadge status={item.status} />
       </div>
@@ -128,7 +128,7 @@ const Dispatch = () => {
 
   return (
     <div className="animate-fade-in space-y-4">
-      <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-3 bg-white p-2.5 sm:p-3 border border-gray-200 rounded-xl shadow-sm">
+    <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-3 p-1 sm:p-2 mb-2">
         <h2 className="text-lg font-bold text-gray-900 shrink-0 hidden sm:block">Dispatch Operations</h2>
 
         <SearchBar
@@ -159,20 +159,24 @@ const Dispatch = () => {
           <tr key={idx} className="hover:bg-gray-50 transition-colors">
             {activeTab === 'pending' ? (
               <>
+                <td><button onClick={() => openDispatch(item)} className="btn btn-primary px-3 py-1 text-xs">Dispatch</button></td>
                 <td className="font-medium text-gray-900">{item.invoiceId}</td>
                 <td className="text-xs text-gray-500">{item.orderId}</td>
+                <td className="text-xs text-gray-500">{item.enquiryId || '-'}</td>
                 <td>{item.personName}</td>
-                <td>{item.itemName}</td>
-                <td className="font-bold">{item.quantity}</td>
+                <td className="max-w-[200px] truncate">{item.items?.map(i => `${i.name} (x${i.qty})`).join(', ')}</td>
+                <td className="font-bold text-sky-600">{item.items?.reduce((sum, i) => sum + Number(i.qty), 0) || 0}</td>
                 <td>₹{item.totalAmount}</td>
-                <td><button onClick={() => openDispatch(item)} className="btn btn-primary px-3 py-1 text-xs">Dispatch</button></td>
               </>
             ) : (
               <>
                 <td className="font-medium text-gray-900">{item.dispatchId}</td>
                 <td className="text-xs text-gray-500">{item.invoiceId}</td>
+                <td className="text-xs text-gray-500">{item.orderId}</td>
+                <td className="text-xs text-gray-500">{item.enquiryId || '-'}</td>
                 <td>{item.personName}</td>
-                <td>{item.itemName}</td>
+                <td className="max-w-[200px] truncate">{item.items?.map(i => `${i.name} (x${i.qty})`).join(', ')}</td>
+                <td className="font-bold text-sky-600">{item.items?.reduce((sum, i) => sum + Number(i.qty), 0) || 0}</td>
                 <td>{item.transportName}</td>
                 <td>{item.vehicleNumber}</td>
                 <td>{new Date(item.dispatchDate).toLocaleDateString()}</td>

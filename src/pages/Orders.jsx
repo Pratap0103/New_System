@@ -3,152 +3,224 @@ import { get, save } from '../utils/storage';
 import DataTable from '../components/DataTable';
 import StatusBadge from '../components/StatusBadge';
 import PopupModal from '../components/PopupModal';
-import ImageViewer from '../components/ImageViewer';
 import SearchBar from '../components/SearchBar';
-import { Image as ImageIcon } from 'lucide-react';
+import { CheckSquare } from 'lucide-react';
 
 const match = (val, q) => String(val || '').toLowerCase().includes(q);
 
 const Orders = () => {
   const [data, setData] = useState([]);
   const [modalOpen, setModalOpen] = useState(false);
-  const [imageModal, setImageModal] = useState({ open: false, url: '' });
-  const [selectedItem, setSelectedItem] = useState(null);
-  const [stockStatus, setStockStatus] = useState('Available');
+  const [selectedOrderIds, setSelectedOrderIds] = useState([]);
+  const [individualStatuses, setIndividualStatuses] = useState({});
 
-  // Search & filter state
+  // Search state
   const [search, setSearch] = useState('');
-  const [filterItem, setFilterItem] = useState('');
 
   useEffect(() => {
-    setData(get('jp_orders'));
+    // Migration for old data
+    const rawData = get('jp_orders') || [];
+    const migrated = rawData.map(d => ({
+      ...d,
+      enquiryId: d.enquiryId || d.orderId,
+      priority: d.priority || 'Medium',
+      items: d.items || (d.itemName ? [{ name: d.itemName, qty: d.quantity || 1 }] : [])
+    }));
+    setData(migrated);
   }, []);
 
   const pendingData = data.filter(d => d.status === 'Pending');
-  const itemNames = [...new Set(pendingData.map(item => item.itemName))].filter(Boolean).map(i => ({ label: i, value: i }));
 
   const applyFilters = (list) => {
     const q = search.toLowerCase();
     return list.filter(d => {
-      const matchSearch = !q || match(d.orderId, q) || match(d.personName, q) || match(d.personNumber, q) || match(d.itemName, q);
-      const matchItem = !filterItem || d.itemName === filterItem;
-      return matchSearch && matchItem;
+      return !q || match(d.orderId, q) || match(d.enquiryId, q) || match(d.personName, q) || match(d.personNumber, q);
     });
   };
 
   const filteredData = applyFilters(pendingData);
 
-  const openStockCheck = (item) => {
-    setSelectedItem(item);
-    setStockStatus('Available');
+  const toggleSelection = (orderId) => {
+    setSelectedOrderIds(prev => 
+      prev.includes(orderId) ? prev.filter(id => id !== orderId) : [...prev, orderId]
+    );
+  };
+
+  const toggleAll = (e) => {
+    if (e.target.checked) {
+      setSelectedOrderIds(filteredData.map(d => d.orderId));
+    } else {
+      setSelectedOrderIds([]);
+    }
+  };
+
+  const openModalWithSelected = (ids) => {
+    setSelectedOrderIds(ids);
+    const initialStatuses = {};
+    ids.forEach(id => {
+      initialStatuses[id] = 'Available';
+    });
+    setIndividualStatuses(initialStatuses);
     setModalOpen(true);
   };
 
-  const handleSubmit = () => {
-    const updated = data.map(d => d.orderId === selectedItem.orderId ? {
-      ...d, status: stockStatus, updatedDate: new Date().toISOString()
-    } : d);
+  const handleStatusChange = (orderId, status) => {
+    setIndividualStatuses(prev => ({ ...prev, [orderId]: status }));
+  };
 
-    if (stockStatus === 'Available') {
-      const invoices = get('jp_invoices');
-      save('jp_invoices', [...invoices, { ...selectedItem, status: 'Pending' }]);
-    } else {
-      const purchases = get('jp_purchases');
-      save('jp_purchases', [...purchases, { ...selectedItem, status: 'Pending' }]);
-    }
+  const handleBulkUpdate = () => {
+    const selectedOrders = data.filter(d => selectedOrderIds.includes(d.orderId));
+    
+    // Update jp_orders status
+    const updatedData = data.map(d => {
+      if (selectedOrderIds.includes(d.orderId)) {
+        return { ...d, status: individualStatuses[d.orderId], updatedDate: new Date().toISOString() };
+      }
+      return d;
+    });
 
-    setData(updated);
-    save('jp_orders', updated);
+    // Move to Assemble or Purchases
+    const currentAssembles = get('jp_assembles') || [];
+    const currentPurchases = get('jp_purchases') || [];
+    let newAssembles = [...currentAssembles];
+    let newPurchases = [...currentPurchases];
+
+    selectedOrders.forEach(order => {
+      const status = individualStatuses[order.orderId];
+      if (status === 'Available') {
+        newAssembles.push({ ...order, status: 'Pending', source: 'Stock Check' });
+      } else {
+        newPurchases.push({ ...order, status: 'Pending' });
+      }
+    });
+
+    save('jp_assembles', newAssembles);
+    save('jp_purchases', newPurchases);
+    setData(updatedData);
+    save('jp_orders', updatedData);
+    
+    setSelectedOrderIds([]);
     setModalOpen(false);
     window.dispatchEvent(new Event("storage"));
   };
 
-  const columns = ['Order ID', 'Person Name', 'Number', 'Item Name', 'Qty', 'Image', 'Order Date', 'Action'];
+  const formatItems = (items) => {
+    if (!items || items.length === 0) return '-';
+    return items.map(i => `${i.name} (${i.qty})`).join(', ');
+  };
 
-  const renderCard = (item, idx) => (
-    <div key={idx} className="bg-white rounded-xl border border-gray-200 p-4 shadow-sm space-y-2">
-      <div className="flex justify-between items-start">
-        <div>
-          <p className="font-bold text-sm text-gray-900">{item.orderId}</p>
-          <p className="text-sm font-medium text-gray-700 mt-0.5">{item.personName}</p>
-          <p className="text-xs text-gray-500">{item.personNumber}</p>
-        </div>
-        <button className="text-sky-600 p-2 bg-sky-50 rounded-lg" onClick={() => setImageModal({ open: true, url: item.itemImage })}>
-          <ImageIcon size={16} />
-        </button>
-      </div>
-      <div className="flex justify-between items-center text-sm border-t border-gray-100 pt-2">
-        <div>
-          <p className="text-gray-800 font-medium">{item.itemName}</p>
-          <p className="text-xs text-gray-500">Qty: {item.quantity} · {new Date(item.orderDate).toLocaleDateString()}</p>
-        </div>
-        <button onClick={() => openStockCheck(item)} className="btn btn-primary px-3 py-1.5 text-xs whitespace-nowrap">
-          Check Stock
-        </button>
-      </div>
-    </div>
-  );
+  const getPriorityColor = (priority) => {
+    if (priority === 'High') return 'text-red-600 bg-red-50';
+    if (priority === 'Low') return 'text-gray-600 bg-gray-50';
+    return 'text-blue-600 bg-blue-50';
+  };
+
+  const columns = [
+    <input type="checkbox" onChange={toggleAll} checked={selectedOrderIds.length > 0 && selectedOrderIds.length === filteredData.length} />,
+    'Action', 'Enquiry ID', 'Order ID', 'Person Name', 'Number', 'Priority', 'Order Status', 'Order Date', 'Items', 'Qty', 'Delivery Date', 'Remarks'
+  ];
 
   return (
     <div className="animate-fade-in space-y-4">
-      <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-3 bg-white p-2.5 sm:p-3 border border-gray-200 rounded-xl shadow-sm">
-        <h2 className="text-lg font-bold text-gray-900 shrink-0 hidden sm:block">Orders</h2>
+    <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-3 p-1 sm:p-2 mb-2">
+        <h2 className="text-lg font-bold text-gray-900 shrink-0 hidden sm:block">Orders (Stock Check)</h2>
 
         <SearchBar
           search={search}
           onSearch={setSearch}
-          placeholder="Search Order ID, Name, Number…"
-          filters={[{ label: 'All Items', value: filterItem, onChange: setFilterItem, options: itemNames }]}
+          placeholder="Search Order ID, Enquiry ID, Name…"
           count={{ filtered: filteredData.length, total: pendingData.length }}
         />
+
+        {selectedOrderIds.length > 0 && (
+          <button 
+            className="btn btn-primary flex items-center justify-center gap-2 shrink-0 animate-fade-in"
+            onClick={() => openModalWithSelected(selectedOrderIds)}
+          >
+            <CheckSquare size={16} />
+            Update Selected ({selectedOrderIds.length})
+          </button>
+        )}
       </div>
 
       <DataTable
         columns={columns}
         data={filteredData}
         renderRow={(item, idx) => (
-          <tr key={idx} className="hover:bg-gray-50 transition-colors">
-            <td className="font-medium text-gray-900">{item.orderId}</td>
-            <td>{item.personName}</td>
-            <td>{item.personNumber}</td>
-            <td>{item.itemName}</td>
-            <td>{item.quantity}</td>
+          <tr key={idx} className={`transition-colors ${selectedOrderIds.includes(item.orderId) ? 'bg-sky-50' : 'hover:bg-gray-50'}`}>
             <td>
-              <button className="text-sky-600 p-1 bg-sky-50 rounded" onClick={() => setImageModal({ open: true, url: item.itemImage })}>
-                <ImageIcon size={16} />
-              </button>
+              <input 
+                type="checkbox" 
+                checked={selectedOrderIds.includes(item.orderId)} 
+                onChange={() => toggleSelection(item.orderId)}
+                className="w-4 h-4 text-sky-600 rounded border-gray-300 focus:ring-sky-500"
+              />
             </td>
-            <td>{new Date(item.orderDate).toLocaleDateString()}</td>
-            <td>
-              <button onClick={() => openStockCheck(item)} className="btn btn-primary px-3 py-1 text-xs whitespace-nowrap">Check in Stock</button>
-            </td>
+             <td>
+               <button onClick={() => {
+                 openModalWithSelected([item.orderId]);
+               }} className="btn btn-secondary px-3 py-1 text-xs">Update</button>
+             </td>
+             <td className="text-xs text-gray-500">{item.enquiryId || 'N/A'}</td>
+            <td className="font-medium text-gray-900">{item.orderId || '-'}</td>
+            <td>{item.personName || 'Unnamed'}</td>
+            <td>{item.personNumber || '-'}</td>
+            <td><span className={`px-2 py-1 rounded text-xs font-medium ${getPriorityColor(item.priority || 'Medium')}`}>{item.priority || 'Medium'}</span></td>
+            <td><StatusBadge status={item.status || 'Pending'} /></td>
+            <td>{item.orderDate ? new Date(item.orderDate).toLocaleDateString() : '-'}</td>
+            <td className="truncate max-w-[200px]" title={formatItems(item.items)}>{formatItems(item.items)}</td>
+            <td className="font-bold text-sky-600">{item.items?.reduce((sum, i) => sum + Number(i.qty), 0) || 0}</td>
+            <td>{item.deliveryDate ? new Date(item.deliveryDate).toLocaleDateString() : '-'}</td>
+            <td className="truncate max-w-[150px]">{item.remarks || '-'}</td>
           </tr>
         )}
-        renderCard={renderCard}
       />
 
-      <PopupModal isOpen={modalOpen} onClose={() => setModalOpen(false)} title="Stock Validation">
-        {selectedItem && (
-          <div className="space-y-4">
-            <div className="bg-gray-50 p-4 rounded-xl text-sm text-gray-700 divide-y divide-gray-200 border border-gray-200">
-              <div className="pb-2"><strong>Required Item:</strong> {selectedItem.itemName}</div>
-              <div className="pt-2"><strong>Required Qty:</strong> {selectedItem.quantity}</div>
-            </div>
-            <div>
-              <label className="input-label">Is Stock Available?</label>
-              <select className="input-field" value={stockStatus} onChange={e => setStockStatus(e.target.value)}>
-                <option value="Available">Available (Proceed to Invoice)</option>
-                <option value="Not Available">Not Available (Request Purchase)</option>
-              </select>
-            </div>
-            <div className="pt-2">
-              <button onClick={handleSubmit} className="btn btn-primary w-full py-2.5">Confirm Stock Status</button>
-            </div>
+      {/* Bulk Update Modal */}
+      <PopupModal isOpen={modalOpen} onClose={() => setModalOpen(false)} title={`Update Stock Status (${selectedOrderIds.length} orders)`}>
+        <div className="space-y-4">
+          <div className="bg-sky-50 border border-sky-100 p-4 rounded-xl text-sm text-sky-800">
+            Select the stock availability for each item below:
           </div>
-        )}
-      </PopupModal>
+          
+          <div className="max-h-[50vh] overflow-y-auto space-y-3 pr-1">
+            {data.filter(d => selectedOrderIds.includes(d.orderId)).map((order, idx) => (
+              <div key={idx} className="bg-white border border-gray-200 p-3 rounded-lg shadow-sm space-y-2">
+                <div className="flex justify-between items-start">
+                  <div>
+                    <p className="text-xs font-bold text-sky-600">{order.orderId}</p>
+                    <p className="text-sm font-medium text-gray-900">{order.personName}</p>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-[10px] text-gray-500 font-mono">{order.enquiryId}</p>
+                  </div>
+                </div>
+                
+                <div className="text-xs text-gray-600 bg-gray-50 p-2 rounded">
+                  {formatItems(order.items)}
+                </div>
 
-      <ImageViewer isOpen={imageModal.open} onClose={() => setImageModal({ open: false, url: '' })} />
+                <div>
+                  <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">Stock Status</label>
+                  <select 
+                    className="input-field py-1 h-9 text-sm mt-1" 
+                    value={individualStatuses[order.orderId] || 'Available'} 
+                    onChange={e => handleStatusChange(order.orderId, e.target.value)}
+                  >
+                    <option value="Available">Available (Send to Invoices)</option>
+                    <option value="Not Available">Not Available (Send to Purchases)</option>
+                  </select>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <div className="flex gap-2 pt-2 border-t border-gray-100 mt-2">
+            <button onClick={() => setModalOpen(false)} className="btn btn-secondary flex-1 py-2">Cancel</button>
+            <button onClick={handleBulkUpdate} className="btn btn-primary flex-1 py-2">Save All Updates</button>
+          </div>
+        </div>
+      </PopupModal>
     </div>
   );
 };

@@ -11,6 +11,7 @@ import Orders from './pages/Orders';
 import Inventory from './pages/Inventory';
 import Purchases from './pages/Purchases';
 import Receives from './pages/Receives';
+import Assemble from './pages/Assemble';
 import Invoices from './pages/Invoices';
 import Dispatch from './pages/Dispatch';
 import Master from './pages/Master';
@@ -77,7 +78,7 @@ const Layout = ({ session, onLogout }) => {
         </header>
 
         {/* Page Content — bottom padding accounts for fixed footer */}
-        <main className="flex-1 overflow-auto p-4 sm:p-6 pb-10">
+        <main className="flex-1 overflow-y-auto p-4 sm:p-6 pb-10">
           <Outlet />
         </main>
       </div>
@@ -129,6 +130,7 @@ function App() {
           <Route path="inventory" element={<Inventory />} />
           <Route path="purchases" element={<Purchases />} />
           <Route path="receives" element={<Receives />} />
+          <Route path="assemble" element={<Assemble />} />
           <Route path="invoices" element={<Invoices />} />
           <Route path="dispatch" element={<Dispatch />} />
           <Route path="master" element={<Master />} />

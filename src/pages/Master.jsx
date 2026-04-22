@@ -100,7 +100,7 @@ const Master = () => {
 
   return (
     <div className="animate-fade-in space-y-4">
-      <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-3 bg-white p-2.5 sm:p-3 border border-gray-200 rounded-xl shadow-sm">
+    <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-3 p-1 sm:p-2 mb-2">
         <div className="hidden sm:block shrink-0 pr-2 border-r border-gray-100">
           <h2 className="text-lg font-bold text-gray-900">Item Master</h2>
           <p className="text-xs text-gray-500 mt-0.5">Catalog source</p>

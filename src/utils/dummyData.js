@@ -2,59 +2,117 @@ import { get, save } from './storage';
 
 const dummyData = {
   jp_enquiries: [
-    { orderId: 'ENQ-1718000001', personName: 'Rahul Singh', personNumber: '+919876543210', itemName: '4 Inch Water Pump', quantity: 2, itemImage: 'pump.jpg', orderDate: '2026-04-20T10:00:00Z', status: 'Pending' },
-    { orderId: 'ENQ-1718000002', personName: 'Amit Patel', personNumber: '+919876543211', itemName: 'John Deere Clutch Plate', quantity: 1, itemImage: 'clutch.jpg', orderDate: '2026-04-20T11:30:00Z', status: 'Follow Up', nextDate: '2026-04-25', remarks: 'Customer wants a discount.' },
-    { orderId: 'ENQ-1718000003', personName: 'Vikas Sharma', personNumber: '+919876543212', itemName: 'Hydraulic Motor', quantity: 3, itemImage: 'motor.jpg', orderDate: '2026-04-21T09:15:00Z', status: 'Order Received' },
-    { orderId: 'ENQ-1718000004', personName: 'Sunil Verma', personNumber: '+919876543213', itemName: 'Tractor Belt 80mm', quantity: 5, itemImage: 'belt.jpg', orderDate: '2026-04-21T14:45:00Z', status: 'Pending' },
-    { orderId: 'ENQ-1718000005', personName: 'Priya Reddy', personNumber: '+919876543214', itemName: 'Diesel Filter', quantity: 10, itemImage: 'filter.jpg', orderDate: '2026-04-22T08:20:00Z', status: 'Order Received' },
-    { orderId: 'ENQ-1718000006', personName: 'Rajesh Kumar', personNumber: '+919876543215', itemName: 'Front Axle Bearing', quantity: 4, itemImage: 'bearing.jpg', orderDate: '2026-04-22T09:10:00Z', status: 'Order Cancelled', remarks: 'Too expensive' }
+    ...Array.from({ length: 15 }).map((_, i) => ({
+      enquiryId: `ENQ-00${i + 1}`,
+      personName: ['Rahul Singh', 'Amit Patel', 'Vikas Sharma', 'Sunil Verma', 'Priya Reddy', 'Manish Gupta', 'Kunal Sen', 'Ravi Teja', 'Deepak Jha', 'Suresh Raina', 'Hardik Pandya', 'Virat Kohli', 'MS Dhoni', 'Rohit Sharma', 'KL Rahul'][i],
+      personNumber: `+9198765432${10 + i}`,
+      priority: ['High', 'Medium', 'Low'][i % 3],
+      orderDate: new Date(Date.now() - i * 86400000).toISOString(),
+      status: ['New', 'Follow Up', 'Order Received', 'Order Cancelled'][i % 4],
+      remarks: `WhatsApp Summary for ${['Rahul Singh', 'Amit Patel', 'Vikas Sharma', 'Sunil Verma', 'Priya Reddy', 'Manish Gupta', 'Kunal Sen', 'Ravi Teja', 'Deepak Jha', 'Suresh Raina', 'Hardik Pandya', 'Virat Kohli', 'MS Dhoni', 'Rohit Sharma', 'KL Rahul'][i]}: Customer interested in tractor maintenance parts. Requested quotation for bulk order.`,
+      items: [{ name: ['4 Inch Water Pump', 'John Deere Clutch Plate', 'Hydraulic Motor', 'Tractor Belt 80mm', 'Diesel Filter', 'Front Axle Bearing', 'Piston Ring Set', 'Heavy Duty Jack', 'Radiator Assembly', 'Fuel Injection Pump'][i % 10], qty: (i % 5) + 1 }],
+      itemImage: i % 2 === 0 ? 'https://images.unsplash.com/photo-1590496885360-155728a4cdb5?w=200' : ''
+    }))
   ],
   jp_orders: [
-    { orderId: 'ENQ-1718000003', personName: 'Vikas Sharma', personNumber: '+919876543212', itemName: 'Hydraulic Motor', quantity: 3, itemImage: 'motor.jpg', orderDate: '2026-04-21T09:15:00Z', status: 'Available' },
-    { orderId: 'ENQ-1718000005', personName: 'Priya Reddy', personNumber: '+919876543214', itemName: 'Diesel Filter', quantity: 10, itemImage: 'filter.jpg', orderDate: '2026-04-22T08:20:00Z', status: 'Not Available' },
-    { orderId: 'ENQ-1718000007', personName: 'Anil Desai', personNumber: '+919876543216', itemName: 'Piston Ring Set', quantity: 2, itemImage: 'ring.jpg', orderDate: '2026-04-22T10:05:00Z', status: 'Pending' },
-    { orderId: 'ENQ-1718000008', personName: 'Mukesh Ambani', personNumber: '+919876543217', itemName: 'Heavy Duty Jack', quantity: 1, itemImage: 'jack.jpg', orderDate: '2026-04-22T10:30:00Z', status: 'Pending' }
+    ...Array.from({ length: 10 }).map((_, i) => ({
+      orderId: `OR-10${i + 1}`,
+      enquiryId: `ENQ-00${i + 1}`,
+      personName: ['Arjun Kapoor', 'Sanjay Dutt', 'Salman Khan', 'Aamir Khan', 'Shah Rukh Khan', 'Hrithik Roshan', 'Ranbir Kapoor', 'Ranveer Singh', 'Varun Dhawan', 'Sid Malhotra'][i],
+      personNumber: `+9199887766${10 + i}`,
+      items: [{ name: 'Engine Oil 5L', qty: 2 }, { name: 'Oil Filter', qty: 1 }],
+      orderDate: new Date(Date.now() - i * 3600000).toISOString(),
+      status: ['Pending', 'Available', 'Not Available'][i % 3],
+      priority: ['High', 'Medium', 'Low'][i % 3],
+      deliveryDate: '2026-05-15',
+      remarks: 'Standard delivery terms apply.'
+    }))
   ],
   jp_inventory: [
     { skuId: 'SKU-001', productName: '4 Inch Water Pump', category: 'Pump', unitPrice: 4500, availableStock: 15, hsnCode: '8413', unit: 'pcs', gstRate: 18 },
     { skuId: 'SKU-002', productName: 'John Deere Clutch Plate', category: 'Tractor Parts', unitPrice: 2100, availableStock: 0, hsnCode: '8708', unit: 'pcs', gstRate: 18 },
     { skuId: 'SKU-003', productName: 'Hydraulic Motor', category: 'Motor', unitPrice: 12500, availableStock: 8, hsnCode: '8412', unit: 'pcs', gstRate: 18 },
     { skuId: 'SKU-004', productName: 'Diesel Filter', category: 'Filters', unitPrice: 350, availableStock: 2, hsnCode: '8421', unit: 'pcs', gstRate: 18 },
-    { skuId: 'SKU-005', productName: 'Bearing 6204', category: 'Bearings', unitPrice: 150, availableStock: 100, hsnCode: '8482', unit: 'pcs', gstRate: 18 }
+    { skuId: 'SKU-005', productName: 'Engine Oil 5L', category: 'Consumables', unitPrice: 1800, availableStock: 50, hsnCode: '2710', unit: 'btl', gstRate: 18 },
+    { skuId: 'SKU-006', productName: 'Oil Filter', category: 'Filters', unitPrice: 450, availableStock: 30, hsnCode: '8421', unit: 'pcs', gstRate: 18 }
   ],
   jp_purchases: [
-    { orderId: 'ENQ-1718000005', itemName: 'Diesel Filter', quantity: 10, supplierName: 'Auto Parts India', supplierContact: '9898989898', purchasePrice: 200, orderDate: '2026-04-22T08:30:00Z', expectedDeliveryDate: '2026-04-23', status: 'Purchased' },
-    { orderId: 'ORD-1718000101', itemName: 'Bearing 6204', quantity: 50, supplierName: 'Delhi Auto', supplierContact: '9988776655', purchasePrice: 120, orderDate: '2026-04-18T09:00:00Z', expectedDeliveryDate: '2026-04-20', status: 'Purchased' },
-    { orderId: 'ORD-1718000102', itemName: 'John Deere Clutch Plate', quantity: 5, status: 'Pending' }
+    ...Array.from({ length: 5 }).map((_, i) => ({
+      orderId: `OR-10${i + 5}`,
+      enquiryId: `ENQ-00${i + 5}`,
+      personName: ['Shah Rukh Khan', 'Hrithik Roshan', 'Ranbir Kapoor', 'Ranveer Singh', 'Varun Dhawan'][i],
+      itemName: 'Radiator Assembly',
+      quantity: 10,
+      supplierName: 'Auto Parts India',
+      supplierContact: '9898989898',
+      purchasePrice: 1500,
+      orderDate: new Date().toISOString(),
+      expectedDeliveryDate: '2026-04-30',
+      status: i % 2 === 0 ? 'Purchased' : 'Pending'
+    }))
   ],
   jp_receives: [
-    { orderId: 'ENQ-1718000005', itemName: 'Diesel Filter', quantity: 10, supplierName: 'Auto Parts India', expectedDeliveryDate: '2026-04-23', status: 'Pending' },
-    { orderId: 'ORD-1718000101', itemName: 'Bearing 6204', quantity: 50, supplierName: 'Delhi Auto', expectedDeliveryDate: '2026-04-20', status: 'Received', receivedQty: 50, receivedDate: '2026-04-20', condition: 'Good', receivedBy: 'Admin' }
+    ...Array.from({ length: 5 }).map((_, i) => ({
+      orderId: `OR-10${i + 7}`,
+      enquiryId: `ENQ-00${i + 7}`,
+      itemName: 'Radiator Assembly',
+      quantity: 5,
+      supplierName: 'Global Tractors',
+      expectedDeliveryDate: '2026-04-28',
+      status: i % 2 === 0 ? 'Received' : 'Pending',
+      receivedQty: i % 2 === 0 ? 5 : 0,
+      receivedDate: i % 2 === 0 ? new Date().toISOString() : ''
+    }))
+  ],
+  jp_assembles: [
+    ...Array.from({ length: 10 }).map((_, i) => ({
+      orderId: `ASM-70${i + 1}`,
+      enquiryId: `ENQ-00${(i % 15) + 1}`,
+      personName: ['Kabir Singh', 'Preeti Sikka', 'Raj Malhotara', 'Simran Kaur', 'Rahul Khanna', 'Anjali Sharma', 'Tina Malhotra', 'Vijay Deenanath', 'Chauhan Sahab', 'Bhuvan Lagaan'][i],
+      items: [{ name: 'Brake Pad Set', qty: 2 }, { name: 'Brake Fluid', qty: 1 }],
+      priority: ['High', 'Medium', 'Low'][i % 3],
+      source: i % 2 === 0 ? 'Stock Check' : 'Purchase',
+      status: i < 5 ? 'Pending' : 'Assembled',
+      assembledAt: i >= 5 ? new Date(Date.now() - (i-5) * 86400000).toISOString() : ''
+    }))
   ],
   jp_invoices: [
-    { orderId: 'ENQ-1718000003', personName: 'Vikas Sharma', item: 'Hydraulic Motor', quantity: 3, status: 'Pending' },
-    { invoiceId: 'INV-1718000100', orderId: 'OLD-001', customerName: 'Suresh Kumar', item: 'Tractor Belt 80mm', quantity: 2, subTotal: 1000, gst: 180, totalAmount: 1180, invoiceDate: '2026-04-19T10:00:00Z', status: 'Invoiced' },
-    { invoiceId: 'INV-1718000101', orderId: 'OLD-002', customerName: 'Kishore Traders', item: 'Bearing 6204', quantity: 10, subTotal: 2500, gst: 450, totalAmount: 2950, invoiceDate: '2026-04-21T11:00:00Z', status: 'Invoiced' }
+    ...Array.from({ length: 5 }).map((_, i) => ({
+      invoiceId: `INV-80${i + 1}`,
+      orderId: `ASM-70${i + 6}`,
+      enquiryId: `ENQ-00${i + 6}`,
+      customerName: ['Anjali Sharma', 'Tina Malhotra', 'Vijay Deenanath', 'Chauhan Sahab', 'Bhuvan Lagaan'][i],
+      items: [{ name: 'Brake Pad Set', qty: 2 }, { name: 'Brake Fluid', qty: 1 }],
+      totalAmount: 3500 + i * 500,
+      invoiceDate: new Date().toISOString(),
+      status: i % 2 === 0 ? 'Invoiced' : 'Pending'
+    }))
   ],
   jp_dispatches: [
-    { invoiceId: 'INV-1718000100', orderId: 'OLD-001', personName: 'Suresh Kumar', itemName: 'Tractor Belt 80mm', quantity: 2, totalAmount: 1180, status: 'Pending' },
-    { dispatchId: 'DIS-1718000200', invoiceId: 'INV-1718000101', orderId: 'OLD-002', personName: 'Kishore Traders', itemName: 'Bearing 6204', quantity: 10, transportName: 'VRL Logistics', vehicleNumber: 'MH 12 AB 1234', dispatchDate: '2026-04-22', estimatedDeliveryDate: '2026-04-24', status: 'Dispatched' }
+    ...Array.from({ length: 5 }).map((_, i) => ({
+      dispatchId: `DIS-90${i + 1}`,
+      invoiceId: `INV-80${i + 1}`,
+      orderId: `ASM-70${i + 6}`,
+      enquiryId: `ENQ-00${i + 6}`,
+      personName: ['Anjali Sharma', 'Tina Malhotra', 'Vijay Deenanath', 'Chauhan Sahab', 'Bhuvan Lagaan'][i],
+      items: [{ name: 'Brake Pad Set', qty: 2 }, { name: 'Brake Fluid', qty: 1 }],
+      transportName: 'VRL Logistics',
+      vehicleNumber: `MH-12-AB-${1000 + i}`,
+      dispatchDate: new Date().toISOString(),
+      status: i % 2 === 0 ? 'Dispatched' : 'Pending',
+      totalAmount: 3500 + i * 500
+    }))
   ],
   jp_master: [
     { skuId: 'SKU-001', productName: '4 Inch Water Pump', category: 'Pump', hsnCode: '8413', unit: 'pcs', purchasePrice: 3800, sellingPrice: 4500, gstRate: 18, openingStock: 15 },
-    { skuId: 'SKU-002', productName: 'John Deere Clutch Plate', category: 'Tractor Parts', hsnCode: '8708', unit: 'pcs', purchasePrice: 1800, sellingPrice: 2100, gstRate: 18, openingStock: 0 },
-    { skuId: 'SKU-003', productName: 'Hydraulic Motor', category: 'Motor', hsnCode: '8412', unit: 'pcs', purchasePrice: 10500, sellingPrice: 12500, gstRate: 18, openingStock: 8 },
-    { skuId: 'SKU-004', productName: 'Diesel Filter', category: 'Filters', hsnCode: '8421', unit: 'pcs', purchasePrice: 200, sellingPrice: 350, gstRate: 18, openingStock: 2 },
-    { skuId: 'SKU-005', productName: 'Bearing 6204', category: 'Bearings', hsnCode: '8482', unit: 'pcs', purchasePrice: 120, sellingPrice: 250, gstRate: 18, openingStock: 100 }
+    { skuId: 'SKU-002', productName: 'John Deere Clutch Plate', category: 'Tractor Parts', hsnCode: '8708', unit: 'pcs', purchasePrice: 1800, sellingPrice: 2100, gstRate: 18, openingStock: 0 }
   ],
   jp_settings: {
     businessName: 'Jhabka Tractor Portal',
     gstin: '08AAAAA0000A1Z5',
     address1: '123 Market Road',
-    address2: 'Near Bus Stand',
     city: 'Jaipur',
     state: 'Rajasthan',
-    pin: '302001',
     phone: '+91 9876543210',
     email: 'contact@jhabka.com',
     defaultGst: 18,
@@ -63,11 +121,7 @@ const dummyData = {
 };
 
 export const initializeDummyData = () => {
-  // We force reset the data if this function runs, allowing the user to see the fresh 15 rows dummy set immediately.
   Object.keys(dummyData).forEach((key) => {
-    // Check if empty or override flag is set (for this demo wipe and re-seed to guarantee UI updates)
-    if (!localStorage.getItem(key) || JSON.parse(localStorage.getItem(key)).length === 0) {
-      save(key, dummyData[key]);
-    }
+    save(key, dummyData[key]);
   });
 };

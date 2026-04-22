@@ -85,7 +85,7 @@ const Inventory = () => {
 
   return (
     <div className="animate-fade-in space-y-4">
-      <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-3 bg-white p-2.5 sm:p-3 border border-gray-200 rounded-xl shadow-sm">
+    <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-3 p-1 sm:p-2 mb-2">
         <h2 className="text-lg font-bold text-gray-900 shrink-0 hidden sm:block">Inventory Management</h2>
 
         <SearchBar

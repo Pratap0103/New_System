@@ -65,13 +65,14 @@ const Receives = () => {
     } : inv);
     save('jp_inventory', updatedInventory);
 
-    const invoices = get('jp_invoices');
-    save('jp_invoices', [...invoices, {
+    const assembles = get('jp_assembles') || [];
+    save('jp_assembles', [...assembles, {
       orderId: selectedItem.orderId,
-      customerName: 'Customer (From Purchase)',
-      item: selectedItem.itemName,
-      quantity: Number(formData.receivedQty),
-      status: 'Pending'
+      personName: selectedItem.personName || 'Customer (From Purchase)',
+      items: [{ name: selectedItem.itemName, qty: Number(formData.receivedQty) }],
+      priority: selectedItem.priority || 'Medium',
+      status: 'Pending',
+      source: 'Purchase'
     }]);
 
     setData(updated);
@@ -127,7 +128,7 @@ const Receives = () => {
 
   return (
     <div className="animate-fade-in space-y-4">
-      <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-3 bg-white p-2.5 sm:p-3 border border-gray-200 rounded-xl shadow-sm">
+    <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-3 p-1 sm:p-2 mb-2">
         <h2 className="text-lg font-bold text-gray-900 shrink-0 hidden sm:block">Receives</h2>
 
         <SearchBar
@@ -156,23 +157,23 @@ const Receives = () => {
         data={filteredData}
         renderRow={(item, idx) => (
           <tr key={idx} className="hover:bg-gray-50 transition-colors">
-            <td className="font-medium text-gray-900">{item.orderId}</td>
-            <td>{item.itemName}</td>
+            <td className="font-medium text-gray-900">{item.orderId || '-'}</td>
+            <td>{item.itemName || 'No Item'}</td>
             {activeTab === 'pending' ? (
               <>
-                <td className="font-bold">{item.quantity}</td>
-                <td>{item.supplierName}</td>
-                <td>{new Date(item.expectedDeliveryDate).toLocaleDateString()}</td>
+                <td className="font-bold">{item.quantity || 0}</td>
+                <td>{item.supplierName || '-'}</td>
+                <td>{item.expectedDeliveryDate ? new Date(item.expectedDeliveryDate).toLocaleDateString() : '-'}</td>
                 <td><StatusBadge status="PendingReceive" /></td>
                 <td><button onClick={() => openReceive(item)} className="btn btn-primary px-3 py-1 text-xs">Receive</button></td>
               </>
             ) : (
               <>
-                <td className="font-bold text-green-600">{item.receivedQty}</td>
-                <td>{new Date(item.receivedDate).toLocaleDateString()}</td>
-                <td><span className={`px-2 py-1 rounded text-xs ${item.condition === 'Good' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>{item.condition}</span></td>
-                <td>{item.receivedBy}</td>
-                <td><StatusBadge status={item.status} /></td>
+                <td className="font-bold text-green-600">{item.receivedQty || 0}</td>
+                <td>{item.receivedDate ? new Date(item.receivedDate).toLocaleDateString() : '-'}</td>
+                <td><span className={`px-2 py-1 rounded text-xs ${(item.condition || 'Good') === 'Good' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>{item.condition || 'Good'}</span></td>
+                <td>{item.receivedBy || '-'}</td>
+                <td><StatusBadge status={item.status || 'Received'} /></td>
               </>
             )}
           </tr>
