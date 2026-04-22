@@ -44,66 +44,68 @@ const Dashboard = () => {
   }, []);
 
   const Card = ({ title, value, icon: Icon, colorClass }) => (
-    <div className="bg-white rounded-lg border border-gray-200 p-5 flex items-center gap-4 shadow-sm hover:shadow-md transition-shadow">
-      <div className={`p-3 rounded-md ${colorClass}`}>
-        <Icon size={24} />
+    <div className="bg-white rounded-xl border border-gray-200 p-4 flex items-center gap-3 shadow-sm hover:shadow-md transition-shadow">
+      <div className={`p-2.5 rounded-lg ${colorClass} shrink-0`}>
+        <Icon size={20} />
       </div>
-      <div>
-        <h3 className="text-sm font-medium text-gray-500">{title}</h3>
-        <p className="text-2xl font-bold text-gray-900">{value}</p>
+      <div className="min-w-0">
+        <p className="text-xs font-medium text-gray-500 truncate">{title}</p>
+        <p className="text-xl font-bold text-gray-900 mt-0.5">{value}</p>
       </div>
     </div>
   );
 
   return (
-    <div className="animate-fade-in space-y-6">
-      <div className="flex justify-between items-center">
-        <div>
-          <h2 className="text-2xl font-bold text-gray-900">Dashboard Summary</h2>
-          <p className="text-sm text-gray-500">Overview of today's business activity.</p>
-        </div>
+    <div className="animate-fade-in space-y-5">
+      {/* Page heading */}
+      <div>
+        <h2 className="text-xl sm:text-2xl font-bold text-gray-900">Dashboard Summary</h2>
+        <p className="text-sm text-gray-500 mt-0.5">Overview of today's business activity.</p>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+      {/* Stats Grid – 2 cols on mobile, 4 on desktop */}
+      <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
         <Card title="Total Enquiries" value={stats.totalEnquiries} icon={MessageSquare} colorClass="bg-blue-100 text-blue-600" />
         <Card title="Pending Follow-Ups" value={stats.followUps} icon={MessageSquare} colorClass="bg-yellow-100 text-yellow-600" />
         <Card title="Orders Stock Check" value={stats.ordersPending} icon={ShoppingCart} colorClass="bg-indigo-100 text-indigo-600" />
         <Card title="Pending Purchases" value={stats.purchasesPending} icon={ShoppingCart} colorClass="bg-orange-100 text-orange-600" />
-        
         <Card title="Items to Receive" value={stats.toReceive} icon={ArchiveRestore} colorClass="bg-teal-100 text-teal-600" />
         <Card title="Invoices to Create" value={stats.invoicesToCreate} icon={FileText} colorClass="bg-purple-100 text-purple-600" />
         <Card title="Pending Dispatch" value={stats.dispatchPending} icon={Truck} colorClass="bg-cyan-100 text-cyan-600" />
         <Card title="Total Revenue" value={`₹${stats.revenue.toLocaleString()}`} icon={FileText} colorClass="bg-green-100 text-green-600" />
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="lg:col-span-2 bg-white rounded-lg border border-gray-200 p-6 shadow-sm">
-          <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center gap-2">
-            <Package size={20} className="text-gray-500"/> Activity Feed
+      {/* Bottom two panels – stacked on mobile, side by side on lg */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
+        {/* Activity Feed */}
+        <div className="lg:col-span-2 bg-white rounded-xl border border-gray-200 p-5 shadow-sm">
+          <h3 className="text-base font-semibold text-gray-800 mb-4 flex items-center gap-2">
+            <Package size={18} className="text-gray-500" /> Activity Feed
           </h3>
-          <div className="space-y-4 max-h-64 overflow-y-auto pr-2">
+          <div className="space-y-3 max-h-60 overflow-y-auto pr-1">
             {stats.recentActivity.map((act, i) => (
-              <div key={i} className="flex gap-4 p-3 hover:bg-gray-50 rounded-md border border-transparent hover:border-gray-100 transition-colors">
-                <div className="w-2 h-2 mt-2 rounded-full bg-indigo-500 shrink-0"></div>
-                <div>
-                  <p className="font-medium text-sm text-gray-900">{act.desc}</p>
-                  <p className="text-xs text-gray-500 mt-1">{act.time}</p>
+              <div key={i} className="flex gap-3 p-3 hover:bg-gray-50 rounded-lg border border-transparent hover:border-gray-100 transition-colors">
+                <div className="w-2 h-2 mt-1.5 rounded-full bg-indigo-500 shrink-0" />
+                <div className="min-w-0">
+                  <p className="font-medium text-sm text-gray-900 truncate">{act.desc}</p>
+                  <p className="text-xs text-gray-500 mt-0.5">{act.time}</p>
                 </div>
               </div>
             ))}
           </div>
         </div>
 
-        <div className="bg-white rounded-lg border border-gray-200 p-6 shadow-sm">
-          <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center gap-2 text-red-600">
-            <AlertCircle size={20} /> Alerts
+        {/* Alerts */}
+        <div className="bg-white rounded-xl border border-gray-200 p-5 shadow-sm">
+          <h3 className="text-base font-semibold text-red-600 mb-4 flex items-center gap-2">
+            <AlertCircle size={18} /> Alerts
           </h3>
           {stats.lowStock > 0 ? (
-            <div className="bg-red-50 text-red-700 p-4 rounded-md border border-red-100 text-sm">
+            <div className="bg-red-50 text-red-700 p-4 rounded-lg border border-red-100 text-sm">
               <strong>{stats.lowStock} Items</strong> in the inventory have dropped below 5 units. Please initiate a purchase request.
             </div>
           ) : (
-            <div className="bg-green-50 text-green-700 p-4 rounded-md border border-green-100 text-sm">
+            <div className="bg-green-50 text-green-700 p-4 rounded-lg border border-green-100 text-sm">
               All inventory levels are healthy.
             </div>
           )}

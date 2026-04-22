@@ -4,23 +4,43 @@ import DataTable from '../components/DataTable';
 import StatusBadge from '../components/StatusBadge';
 import PopupModal from '../components/PopupModal';
 import ImageViewer from '../components/ImageViewer';
-import { Search, Image as ImageIcon } from 'lucide-react';
+import SearchBar from '../components/SearchBar';
+import { Image as ImageIcon } from 'lucide-react';
+
+const match = (val, q) => String(val || '').toLowerCase().includes(q);
 
 const Enquiries = () => {
-  const [data, setData] = useState([]);
-  const [activeTab, setActiveTab] = useState('pending');
-  const [modalOpen, setModalOpen] = useState(false);
+  const [data, setData]             = useState([]);
+  const [activeTab, setActiveTab]   = useState('pending');
+  const [modalOpen, setModalOpen]   = useState(false);
   const [imageModal, setImageModal] = useState({ open: false, url: '' });
   const [selectedEnquiry, setSelectedEnquiry] = useState(null);
-  
-  const [formData, setFormData] = useState({ status: 'Follow Up', nextDate: '', remarks: '' });
+  const [formData, setFormData]     = useState({ status: 'Follow Up', nextDate: '', remarks: '' });
 
-  useEffect(() => {
-    setData(get('jp_enquiries'));
-  }, []);
+  // Search & filter state
+  const [search, setSearch]         = useState('');
+  const [filterStatus, setFilterStatus] = useState('');
+  const [filterItem, setFilterItem]     = useState('');
 
-  const pendingData = data.filter(d => !['Order Received', 'Order Cancelled'].includes(d.status));
-  const historyData = data.filter(d => ['Order Received', 'Order Cancelled'].includes(d.status) || d.status === 'Follow Up');
+  useEffect(() => { setData(get('jp_enquiries')); }, []);
+
+  const pendingData  = data.filter(d => !['Order Received', 'Order Cancelled'].includes(d.status));
+  const historyData  = data.filter(d => ['Order Received', 'Order Cancelled', 'Follow Up'].includes(d.status));
+
+  const itemNames = [...new Set(data.map(item => item.itemName))].filter(Boolean).map(i => ({ label: i, value: i }));
+
+  const applyFilters = (list) => {
+    const q = search.toLowerCase();
+    return list.filter(d => {
+      const matchSearch = !q || match(d.orderId, q) || match(d.personName, q) || match(d.personNumber, q) || match(d.itemName, q);
+      const matchStatus = !filterStatus || d.status === filterStatus;
+      const matchItem = !filterItem || d.itemName === filterItem;
+      return matchSearch && matchStatus && matchItem;
+    });
+  };
+
+  const baseData     = activeTab === 'pending' ? pendingData : historyData;
+  const filteredData = applyFilters(baseData);
 
   const openFollowUp = (item) => {
     setSelectedEnquiry(item);
@@ -29,17 +49,14 @@ const Enquiries = () => {
   };
 
   const handleSubmit = () => {
-    if (formData.status === 'Follow Up' && !formData.nextDate) return alert("Next date required for Follow Up.");
-
-    const updated = data.map(d => d.orderId === selectedEnquiry.orderId ? {
-      ...d, status: formData.status, nextDate: formData.nextDate, remarks: formData.remarks
-    } : d);
-
-    // If "Order Received", inject into jp_orders strictly
+    if (formData.status === 'Follow Up' && !formData.nextDate) return alert('Next date required for Follow Up.');
+    const updated = data.map(d => d.orderId === selectedEnquiry.orderId
+      ? { ...d, status: formData.status, nextDate: formData.nextDate, remarks: formData.remarks }
+      : d);
     if (formData.status === 'Order Received') {
       const orders = get('jp_orders');
       if (!orders.find(o => o.orderId === selectedEnquiry.orderId)) {
-        save('jp_orders', [...orders, { 
+        save('jp_orders', [...orders, {
           orderId: selectedEnquiry.orderId,
           personName: selectedEnquiry.personName,
           personNumber: selectedEnquiry.personNumber,
@@ -51,35 +68,90 @@ const Enquiries = () => {
         }]);
       }
     }
-
     setData(updated);
     save('jp_enquiries', updated);
     setModalOpen(false);
-    
-    // Auto-refresh layout to recalculate badges (by reloading or state management, doing minimal window.dispatchEvent or reload for simplicity here)
-    window.dispatchEvent(new Event("storage"));
+    window.dispatchEvent(new Event('storage'));
   };
 
   const columnsPending = ['Order ID', 'Person Name', 'Number', 'Item Name', 'Qty', 'Image', 'Order Date', 'Action'];
-  const columnsHistory = ['Order ID', 'Person Name', 'Number', 'Item Name', 'Qty', 'Image', 'Order Date', 'Status', 'Next Date', 'Remarks'];
+  const columnsHistory = ['Order ID', 'Person Name', 'Item Name', 'Qty', 'Order Date', 'Status', 'Next Date', 'Remarks'];
+
+  const renderPendingCard = (item, idx) => (
+    <div key={idx} className="bg-white rounded-xl border border-gray-200 p-4 shadow-sm space-y-2">
+      <div className="flex justify-between items-start">
+        <div>
+          <p className="font-bold text-sm text-gray-900">{item.orderId}</p>
+          <p className="text-sm font-medium text-gray-700 mt-0.5">{item.personName}</p>
+          <p className="text-xs text-gray-500">{item.personNumber}</p>
+        </div>
+        <button className="text-sky-600 p-2 bg-sky-50 rounded-lg" onClick={() => setImageModal({ open: true, url: item.itemImage })}>
+          <ImageIcon size={16} />
+        </button>
+      </div>
+      <div className="flex justify-between items-center text-sm border-t border-gray-100 pt-2">
+        <div>
+          <p className="text-gray-800 font-medium">{item.itemName}</p>
+          <p className="text-xs text-gray-500">Qty: {item.quantity} · {new Date(item.orderDate).toLocaleDateString()}</p>
+        </div>
+        <button onClick={() => openFollowUp(item)} className="btn btn-primary px-3 py-1.5 text-xs">Follow Up</button>
+      </div>
+    </div>
+  );
+
+  const renderHistoryCard = (item, idx) => (
+    <div key={idx} className="bg-white rounded-xl border border-gray-200 p-4 shadow-sm space-y-2">
+      <div className="flex justify-between items-start">
+        <div>
+          <p className="font-bold text-sm text-gray-900">{item.orderId}</p>
+          <p className="text-sm text-gray-700">{item.personName}</p>
+          <p className="text-sm font-medium text-gray-600 mt-1">{item.itemName} · Qty: {item.quantity}</p>
+        </div>
+        <StatusBadge status={item.status} />
+      </div>
+      <div className="flex justify-between text-xs text-gray-500 pt-1 border-t border-gray-100">
+        <span>Date: {new Date(item.orderDate).toLocaleDateString()}</span>
+        <span>Next: {item.nextDate || '-'}</span>
+      </div>
+      {item.remarks && <p className="text-xs text-gray-500 italic truncate">{item.remarks}</p>}
+    </div>
+  );
+
+  const statusOptions = activeTab === 'pending'
+    ? [{ label: 'New', value: 'New' }, { label: 'Follow Up', value: 'Follow Up' }]
+    : [{ label: 'Follow Up', value: 'Follow Up' }, { label: 'Order Received', value: 'Order Received' }, { label: 'Order Cancelled', value: 'Order Cancelled' }];
 
   return (
     <div className="animate-fade-in space-y-4">
-      <div className="flex justify-between items-center">
-        <h2 className="text-2xl font-bold text-gray-900">Enquiries</h2>
-        <div className="flex gap-2 bg-gray-100 p-1 rounded-md">
-          <button className={`px-4 py-1.5 rounded text-sm font-medium transition-colors ${activeTab === 'pending' ? 'bg-white shadow text-indigo-600' : 'text-gray-600 hover:text-gray-900'}`} onClick={() => setActiveTab('pending')}>
-            Pending Action ({pendingData.length})
+      <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-3 bg-white p-2.5 sm:p-3 border border-gray-200 rounded-xl shadow-sm">
+        <h2 className="text-lg font-bold text-gray-900 shrink-0 hidden sm:block">Enquiries</h2>
+
+        <SearchBar
+          search={search}
+          onSearch={setSearch}
+          placeholder="Search Order ID, Name, Number…"
+          filters={[
+            { label: 'All Items', value: filterItem, onChange: setFilterItem, options: itemNames },
+            { label: 'All Status', value: filterStatus, onChange: setFilterStatus, options: statusOptions }
+          ]}
+          count={{ filtered: filteredData.length, total: baseData.length }}
+        />
+
+        <div className="flex gap-1 bg-gray-100 p-1 rounded-lg shrink-0 overflow-x-auto w-full xl:w-auto">
+          <button className={`flex-1 xl:flex-none px-3 py-1.5 rounded-md text-xs font-medium transition-colors whitespace-nowrap ${activeTab === 'pending' ? 'bg-white shadow text-sky-600' : 'text-gray-600'}`}
+            onClick={() => { setActiveTab('pending'); setSearch(''); setFilterStatus(''); setFilterItem(''); }}>
+            Pending ({pendingData.length})
           </button>
-          <button className={`px-4 py-1.5 rounded text-sm font-medium transition-colors ${activeTab === 'history' ? 'bg-white shadow text-indigo-600' : 'text-gray-600 hover:text-gray-900'}`} onClick={() => setActiveTab('history')}>
+          <button className={`flex-1 xl:flex-none px-3 py-1.5 rounded-md text-xs font-medium transition-colors whitespace-nowrap ${activeTab === 'history' ? 'bg-white shadow text-sky-600' : 'text-gray-600'}`}
+            onClick={() => { setActiveTab('history'); setSearch(''); setFilterStatus(''); setFilterItem(''); }}>
             History
           </button>
         </div>
       </div>
 
-      <DataTable 
+      <DataTable
         columns={activeTab === 'pending' ? columnsPending : columnsHistory}
-        data={activeTab === 'pending' ? pendingData : historyData}
+        data={filteredData}
         renderRow={(item, idx) => (
           <tr key={idx} className="hover:bg-gray-50 transition-colors">
             <td className="font-medium text-gray-900">{item.orderId}</td>
@@ -88,15 +160,13 @@ const Enquiries = () => {
             <td>{item.itemName}</td>
             <td>{item.quantity}</td>
             <td>
-              <button className="text-indigo-600 p-1 bg-indigo-50 rounded" onClick={() => setImageModal({ open: true, url: item.itemImage })}>
+              <button className="text-sky-600 p-1 bg-sky-50 rounded" onClick={() => setImageModal({ open: true, url: item.itemImage })}>
                 <ImageIcon size={16} />
               </button>
             </td>
             <td>{new Date(item.orderDate).toLocaleDateString()}</td>
             {activeTab === 'pending' ? (
-              <td>
-                <button onClick={() => openFollowUp(item)} className="btn btn-primary px-3 py-1 text-xs">Follow Up</button>
-              </td>
+              <td><button onClick={() => openFollowUp(item)} className="btn btn-primary px-3 py-1 text-xs">Follow Up</button></td>
             ) : (
               <>
                 <td><StatusBadge status={item.status} /></td>
@@ -106,16 +176,16 @@ const Enquiries = () => {
             )}
           </tr>
         )}
+        renderCard={activeTab === 'pending' ? renderPendingCard : renderHistoryCard}
       />
 
       <PopupModal isOpen={modalOpen} onClose={() => setModalOpen(false)} title="Follow Up Action">
         {selectedEnquiry && (
           <div className="space-y-4">
-            <div className="bg-gray-50 p-4 rounded-md text-sm text-gray-700 divide-y divide-gray-200 border border-gray-200">
-               <div className="pb-2 flex justify-between"><span><strong>Name:</strong> {selectedEnquiry.personName}</span> <span>{selectedEnquiry.personNumber}</span></div>
-               <div className="pt-2 flex justify-between"><span><strong>Item:</strong> {selectedEnquiry.itemName}</span> <span>Qty: {selectedEnquiry.quantity}</span></div>
+            <div className="bg-gray-50 p-4 rounded-xl text-sm text-gray-700 divide-y divide-gray-200 border border-gray-200">
+              <div className="pb-2 flex justify-between"><span><strong>Name:</strong> {selectedEnquiry.personName}</span><span className="text-gray-500">{selectedEnquiry.personNumber}</span></div>
+              <div className="pt-2 flex justify-between"><span><strong>Item:</strong> {selectedEnquiry.itemName}</span><span className="text-gray-500">Qty: {selectedEnquiry.quantity}</span></div>
             </div>
-
             <div>
               <label className="input-label">Action Status</label>
               <select className="input-field" value={formData.status} onChange={e => setFormData({ ...formData, status: e.target.value })}>
@@ -124,26 +194,20 @@ const Enquiries = () => {
                 <option value="Order Cancelled">Order Cancelled</option>
               </select>
             </div>
-
             {formData.status === 'Follow Up' && (
               <div>
                 <label className="input-label">Next Follow-Up Date <span className="text-red-500">*</span></label>
                 <input type="date" className="input-field" value={formData.nextDate} onChange={e => setFormData({ ...formData, nextDate: e.target.value })} />
               </div>
             )}
-
             <div>
-              <label className="input-label">Remarks {formData.status !== 'Follow Up' && '(Optional)'}</label>
-              <textarea rows="2" className="input-field" placeholder="Notes..." value={formData.remarks} onChange={e => setFormData({ ...formData, remarks: e.target.value })} />
+              <label className="input-label">Remarks</label>
+              <textarea rows="2" className="input-field" placeholder="Notes…" value={formData.remarks} onChange={e => setFormData({ ...formData, remarks: e.target.value })} />
             </div>
-
-            <div className="pt-2">
-              <button onClick={handleSubmit} className="btn btn-primary w-full py-2.5">Save & Continue</button>
-            </div>
+            <button onClick={handleSubmit} className="btn btn-primary w-full py-2.5">Save & Continue</button>
           </div>
         )}
       </PopupModal>
-      
       <ImageViewer isOpen={imageModal.open} onClose={() => setImageModal({ open: false, url: '' })} />
     </div>
   );
